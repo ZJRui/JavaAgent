@@ -1,0 +1,4 @@
+Manifest-Version: 1.0
+Main-Class: com.test.App
+Class-Path: bcel-6.5.0.jar javassist-3.27.0-GA.jar
+
