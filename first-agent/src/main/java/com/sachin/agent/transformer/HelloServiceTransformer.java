@@ -4,11 +4,17 @@ import com.sun.org.apache.bcel.internal.Repository;
 import com.sun.org.apache.bcel.internal.classfile.JavaClass;
 import com.sun.org.apache.bcel.internal.classfile.Method;
 import com.sun.org.apache.bcel.internal.generic.*;
+import javassist.ClassPool;
+import javassist.CtClass;
+import javassist.CtMethod;
+import javassist.LoaderClassPath;
 
+import java.io.ByteArrayInputStream;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.IllegalClassFormatException;
 import java.security.ProtectionDomain;
 
+@SuppressWarnings("AlibabaRemoveCommentedCode")
 public class HelloServiceTransformer implements ClassFileTransformer {
 
     private String agentArgs;
@@ -70,12 +76,17 @@ public class HelloServiceTransformer implements ClassFileTransformer {
          *
          */
 
-        System.out.println("HelloServiceTransformer#transform:" + className);
+        className = className.replace("/", ".");
+        System.out.println("HelloServiceTransformer#transform:" +
+                className+!(className.contains("test.HelloService"))
+        +" loader:"+loader
+        );
         /**
          *         if (!className.equals("com/warrenyoung/instrumentions/instrumentiondest/InstrumentTestClass"))
          *         注意分割符号是/
          */
-        if (!(className.contains("com/test/HelloService"))) {
+        if (!(className.contains("test.HelloService"))) {
+
             return classfileBuffer;
         }
         String agentParam = this.agentArgs;
@@ -84,26 +95,101 @@ public class HelloServiceTransformer implements ClassFileTransformer {
         }
 
 
+        try {
+            /**
+             *
+             * 类搜索路径
+             * 通过 ClassPool.getDefault() 获取的 ClassPool 使用 JVM 的类搜索路径。如果程序运行在 JBoss 或者 Tomcat 等 Web 服务器上，
+             * ClassPool 可能无法找到用户的类，因为 Web 服务器使用多个类加载器作为系统类加载器。在这种情况下，ClassPool 必须添加额外的类搜索路径。
+             *
+             * 下面的例子中，pool 代表一个 ClassPool 对象：
+             * pool.insertClassPath(new ClassClassPath(this.getClass()));
+             *
+             * 将this指向的类添加到pool的类加载路径中。你可以使用任意class对象来代替this.getClass,从而将class对象添加到类加载路径中
+             *
+             * 也可以注册一个目录作为类搜索路径。下面的例子将 /usr/local/javalib 添加到类搜索路径中：
+             * pool.insertClassPath("/usr/local/javalib");
+             * 如果对 CtClass 对象调用 detach()，那么该 CtClass 对象将被从 ClassPool 中删除
+             *
+             *
+             *
+             */
+//            ClassPool classPool = new ClassPool();
+//            classPool.appendClassPath(new LoaderClassPath(loader));
+//            final CtClass ctClass;
+//            try (ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(classfileBuffer)) {
+//                ctClass = classPool.makeClass(byteArrayInputStream);
+//            }
+//            ctClass.getDeclaredMethod("getGreeting").setBody(" return \"  "+agentParam+"\" ;");;
+//            System.out.println("transformed");
+//            return ctClass.toBytecode();
 
-        JavaClass javaClass = Repository.lookupClass(className);
-        ClassGen classGen = new ClassGen(javaClass);
-        ConstantPoolGen constantPool = classGen.getConstantPool();
-        for (Method method : javaClass.getMethods()) {
 
-            if (method.getName().equalsIgnoreCase("getGreeting")) {
-                MethodGen methodGen = new MethodGen(method,classGen.getClassName(),constantPool);
-                InstructionList instructionList = new InstructionList();
-                instructionList.append(new PUSH(constantPool, agentParam));
+            /**
+             *  setBody的时候出现了异常
+             * java.lang.RuntimeException: com.test.HelloService class is frozen
+             *         at javassist.CtClassType.checkModify(CtClassType.java:321)
+             *         at javassist.CtBehavior.setBody(CtBehavior.java:460)
+             *         at javassist.CtBehavior.setBody(CtBehavior.java:440)
+             *         at com.sachin.agent.transformer.HelloServiceTransformer.tran
+             *
+             *
+             */
 
-                instructionList.append(InstructionFactory.createReturn(Type.STRING));
-                methodGen.setInstructionList(instructionList);
-                methodGen.setMaxStack();
-                methodGen.setMaxLocals();
-                classGen.replaceMethod(method, methodGen.getMethod());
-                return classGen.getJavaClass().getBytes();
+            /**
+             *
+             * 如果一个 CtClass 对象通过 writeFile(), toClass(), toBytecode() 被转换成一个类文件，此 CtClass
+             * 对象会被冻结起来，不允许再修改。因为一个类只能被 JVM 加载一次。
+             * 但是，一个冷冻的 CtClass 也可以被解冻，例如：
+             * CtClasss cc = ...;
+             *     :
+             * cc.writeFile();
+             * cc.defrost();
+             * cc.setSuperclass(...);    // 因为类已经被解冻，所以这里可以调用成功
+             * 调用 defrost() 之后，此 CtClass 对象又可以被修改了。
+             *
+             *注意：JVM 不允许动态重新加载类。一旦类加载器加载了一个类，它不能在运行时重新加载该类的修改版本。
+             * 因此，在JVM 加载类之后，你不能更改类的定义。但是，JPDA（Java平台调试器架构）提供有限的重新加载类的能力。参见3.6节。
+             *
+             *
+             * 如果相同的类文件由两个不同的类加载器加载，则 JVM 会创建两个具有相同名称和定义的不同的类。
+             * 由于两个类不相同，一个类的实例不能被分配给另一个类的变量。两个类之间的转换操作将失败并抛出一个 ClassCastException。
+             *
+             *
+             */
+            CtClass ctClass = ClassPool.getDefault().get(className);
+            //如果class文件被冻结，已经被jvm加载
+            if(ctClass.isFrozen()) {
+                ctClass.defrost();//解冻
             }
-        }
+            CtMethod getGreeting = ctClass.getDeclaredMethod("getGreeting");
+            getGreeting.setBody(" return \"  "+agentParam+"\" ;");
+            return ctClass.toBytecode();
 
+
+//            JavaClass javaClass = Repository.lookupClass(className);
+//            ClassGen classGen = new ClassGen(javaClass);
+//            ConstantPoolGen constantPool = classGen.getConstantPool();
+//            for (Method method : javaClass.getMethods()) {
+//
+//                System.out.println("method:" + method.getName());
+//
+//                if (method.getName().equalsIgnoreCase("getGreeting")) {
+//                    MethodGen methodGen = new MethodGen(method,classGen.getClassName(),constantPool);
+//                    InstructionList instructionList = new InstructionList();
+//                    instructionList.append(new PUSH(constantPool, agentParam));
+//
+//                    instructionList.append(InstructionFactory.createReturn(Type.STRING));
+//                    methodGen.setInstructionList(instructionList);
+//                    methodGen.setMaxStack();
+//                    methodGen.setMaxLocals();
+//                    classGen.replaceMethod(method, methodGen.getMethod());
+//                    return classGen.getJavaClass().getBytes();
+//                }
+//            }
+        } catch (Throwable e) {
+            e.printStackTrace();
+        }
 
 
         return new byte[0];

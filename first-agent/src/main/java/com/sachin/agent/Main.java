@@ -10,14 +10,17 @@ import java.util.concurrent.ScheduledExecutorService;
 public class Main {
 
 
-    static String attachAppName = "com.test.App";
-    static String agentJarPath = "/Users/jingrzhang/sourceCodes/JavaAgent/first-agent/target/my-agent.jar";
+    static String attachAppName = "app-demo-1.0-SNAPSHOT.jar";
+    static String agentJarPath = "/Users/jingrzhang/sourceCodes/JavaAgent/first-agent/target/first-agent.jar";
     private static ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
 
     public static void main(String[] args) {
-        executorService.submit(() -> {
-            run();
-        });
+        System.out.println("classpath："+System.getProperty("CLASSPATh"));
+//        executorService.submit(() -> {
+//            run();
+//        });
+        run();
+
     }
 
     public static void run()   {
@@ -26,16 +29,21 @@ public class Main {
         try{
             List<VirtualMachineDescriptor> virtualMachineDescriptorList = VirtualMachine.list();
             for (VirtualMachineDescriptor virtualMachineDescriptor : virtualMachineDescriptorList) {
-                System.out.println(virtualMachineDescriptor.displayName());
+                System.out.println("displayname:"+virtualMachineDescriptor.displayName());
                 if (virtualMachineDescriptor.displayName().equalsIgnoreCase(attachAppName)) {
                     VirtualMachine virtualMachine = VirtualMachine.attach(virtualMachineDescriptor.id());
                     virtualMachine.loadAgent(agentJarPath, options);
                     virtualMachine.detach();
-                    System.out.println(virtualMachineDescriptor.displayName() + " , " + virtualMachineDescriptor.id());
+                    System.out.println("attached: "+virtualMachineDescriptor.displayName() + " , " + virtualMachineDescriptor.id());
                 }
             }
         }catch (Exception e){
             e.printStackTrace();
+        }
+        try {
+            Thread.sleep(100000*11000);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
         }
 
     }

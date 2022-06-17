@@ -17,6 +17,17 @@
     </properties>
 
     <dependencies>
+
+        <!--
+        1.agent 进入 目标JVM进程， agent中会使用 字节码技术， agent使用到的类都必要在taget的目标JVM进程中存在。
+        因此 在app-demo 中 打包的时候将 这些依赖打包到指定的libs目录下，然后 app-demo  jar启动的时候 会加载这些依赖jar，一边agent可以使用
+
+        2. agent 会使用到 jdk/lib/tools.jar包中的VirtualMachine  这个类。 app-demo运行的时候 需要将 tools.jar 放置到classpath下，
+        因为我们的命令行中配置了 classpath 环境变量 中已经包含了 tools.jar 因此 实际app-demo运行的时候 不需要额外添加 tools.jar 到classpath中
+
+        3. agent项目中会使用VirtualMachine 这个类，因此需要再agen的pom文件中 引入tools.jary依赖
+
+        -->
         <dependency>
             <groupId>org.apache.bcel</groupId>
             <artifactId>bcel</artifactId>
@@ -50,6 +61,7 @@
                 </configuration>
             </plugin>
             <plugin>
+
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-dependency-plugin</artifactId>
                 <executions>

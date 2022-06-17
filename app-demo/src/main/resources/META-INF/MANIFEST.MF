@@ -4,4 +4,3 @@ Created-By: Apache Maven
 Built-By: jingrzhang
 Build-Jdk: 1.8.0_292
 Main-Class: com.test.App
-

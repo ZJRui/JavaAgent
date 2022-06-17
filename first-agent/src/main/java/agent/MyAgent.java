@@ -26,6 +26,9 @@ public class MyAgent {
      * 所有的对象实例都未被创建；
      * 因而，没有任何 Java 代码被执行；
      *
+     *
+     *  java -javaagent:/Users/jingrzhang/sourceCodes/JavaAgent/first-agent/target/my-agent.jar=abc -jar  app-demo-1.0-SNAPSHOT.jar
+     *
      */
     public static void premain(String agentArgs, Instrumentation inst) {
         System.out.println("MyAgent#premain");
